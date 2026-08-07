@@ -3,11 +3,21 @@
     "name": "CompanionAppExpo",
     "slug": "CompanionAppExpo",
     "version": "1.0.0",
+    "scheme": "maximocompanion",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "location",
+          "fetch"
+        ],
+        "NSLocationWhenInUseUsageDescription": "Companion App requires access to your location to track you in the background for Maximo.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Companion App requires access to your location to track you in the background for Maximo.",
+        "NSLocationAlwaysUsageDescription": "Companion App requires access to your location to track you in the background for Maximo."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -16,10 +26,28 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "package": "com.maximo.companionappexpo",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "POST_NOTIFICATIONS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Companion App requires access to your location to track you in the background for Maximo.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ]
+    ]
   }
 }
