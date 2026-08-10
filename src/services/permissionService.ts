@@ -5,19 +5,28 @@ export const requestLocationPermissions = async (): Promise<boolean> => {
   try {
     // 0. Request notification permission on Android 13+ (Required for Foreground Service to work!)
     if (Platform.OS === 'android' && Platform.Version >= 33) {
-      await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+      const hasNotification = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+      if (!hasNotification) {
+        await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+      }
     }
 
     // 1. Request foreground permission first
-    const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
-    if (foregroundStatus !== 'granted') {
+    let fg = await Location.getForegroundPermissionsAsync();
+    if (fg.status !== 'granted') {
+      fg = await Location.requestForegroundPermissionsAsync();
+    }
+    if (fg.status !== 'granted') {
       console.warn('Foreground location permission denied');
       return false;
     }
 
     // 2. Request background permission
-    const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
-    if (backgroundStatus !== 'granted') {
+    let bg = await Location.getBackgroundPermissionsAsync();
+    if (bg.status !== 'granted') {
+      bg = await Location.requestBackgroundPermissionsAsync();
+    }
+    if (bg.status !== 'granted') {
       console.warn('Background location permission denied');
       return false;
     }

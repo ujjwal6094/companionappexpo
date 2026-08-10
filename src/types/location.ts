@@ -21,4 +21,5 @@ export interface UserConfig {
   employeeId: string;
   apiBaseUrl: string;
   authToken: string;
+  wonum?: string;
 }

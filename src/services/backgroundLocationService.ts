@@ -4,7 +4,7 @@ import { LocationPayload } from '../types/location';
 import { queueLocation, syncQueue } from './locationQueueService';
 import { postLocation } from '../api/locationApi';
 import { getDeviceId } from './deviceService';
-import { getUserConfig } from '../storage/storage';
+import { getUserConfig, getTrackingStartTime, setTrackingStartTime, clearTrackingStartTime } from '../storage/storage';
 
 const LOCATION_TASK_NAME = 'background-location-task';
 let _onStateChange: ((state: { enabled: boolean }) => void) | null = null;
@@ -18,6 +18,16 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
     return;
   }
   if (data) {
+    const startTime = await getTrackingStartTime();
+    const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+    
+    // Auto-stop tracking if 24 hours have elapsed since it started
+    if (startTime && (Date.now() - startTime) > TWENTY_FOUR_HOURS) {
+      _onLog && _onLog(`[Location] 24-hour limit reached. Auto-stopping tracking.`);
+      await stopTracking();
+      return;
+    }
+
     const { locations } = data as { locations: Location.LocationObject[] };
     if (locations && locations.length > 0) {
       for (const location of locations) {
@@ -43,6 +53,8 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
             'spi:speed': location.coords.speed || null,
             'spi:heading': location.coords.heading || null,
           };
+
+          // Removed wonum/key3 as per user request to only send location
 
           // Try sending immediately
           try {
@@ -71,31 +83,33 @@ export const initializeBackgroundGeolocation = async (
   onStateChange({ enabled: isTracking });
   onLog(`[BackgroundGeolocation] initialized. Currently tracking: ${isTracking}`);
 
-  // Setup Heartbeat to sync offline queue every 10 seconds while the app is alive
+  // Setup Heartbeat to sync offline queue every 5 minutes while the app is alive
   if (!heartbeatInterval) {
     heartbeatInterval = setInterval(async () => {
       onLog(`[Heartbeat] Syncing pending locations...`);
       await syncQueue(onLog);
-    }, 10 * 1000); // 10 seconds
+    }, 5 * 60 * 1000); // 5 minutes
   }
 };
 
 export const startTracking = async (): Promise<void> => {
-  const isRegistered = await TaskManager.isTaskRegisteredAsync(LOCATION_TASK_NAME);
-  if (!isRegistered) {
-    await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
-      accuracy: Location.Accuracy.High,
-      timeInterval: 10000, // 10 seconds (Android only)
-      deferredUpdatesInterval: 10000, // Process updates every 10 seconds (iOS)
-      showsBackgroundLocationIndicator: true,
-      foregroundService: {
-        notificationTitle: "Location tracking active",
-        notificationBody: "Your location is being shared with Maximo",
-        notificationColor: "#fff",
-      },
-      pausesUpdatesAutomatically: false
-    });
-  }
+  // Always call startLocationUpdatesAsync to ensure the Foreground Service is forcefully restarted
+  // even if the task was left registered in the database from an incomplete exit.
+  await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
+    accuracy: Location.Accuracy.High,
+    timeInterval: 300000, // 5 minutes (Android only)
+    deferredUpdatesInterval: 300000, // Process updates every 5 minutes (iOS)
+    showsBackgroundLocationIndicator: true,
+    foregroundService: {
+      notificationTitle: "Location tracking active",
+      notificationBody: "Your location is being shared with Maximo",
+      notificationColor: "#fff",
+    },
+    pausesUpdatesAutomatically: false
+  });
+  
+  await setTrackingStartTime(Date.now());
+  
   if (_onStateChange) _onStateChange({ enabled: true });
 };
 
@@ -104,6 +118,8 @@ export const stopTracking = async (): Promise<void> => {
   if (isRegistered) {
     await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
   }
+  await clearTrackingStartTime();
+  
   if (_onStateChange) _onStateChange({ enabled: false });
 };
 
