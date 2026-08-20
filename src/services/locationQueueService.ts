@@ -45,3 +45,7 @@ export const getPendingLocationsCount = async (): Promise<number> => {
   const queue = await getLocationQueue();
   return queue.length;
 };
+
+export const clearQueue = async (): Promise<void> => {
+  await saveLocationQueue([]);
+};

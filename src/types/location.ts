@@ -1,25 +1,22 @@
 export interface LocationPayload {
-  'spi:refobject'?: string;
-  'spi:key1'?: string;
-  'spi:key2'?: string;
-  'spi:longitude': number;
-  'spi:latitude': number;
-  'spi:altitude': number | null;
-  'spi:locationaccuracy': number;
-  'spi:altitudeaccuracy'?: number;
-  'spi:heading'?: number | null;
-  'spi:speed'?: number | null;
-  'spi:lastupdate'?: string;
-  'spi:wonum'?: string;
-  'spi:siteid'?: string;
-  'spi:rowstamp'?: string;
-  'spi:key3'?: string;
-  'spi:orgid'?: string;
+  tripnum?: string;
+  deviceid?: string;
+  personid?: string;
+  latitudey?: number;
+  longitudex?: number;
+  latitudeysnap?: number | null;
+  longitudexsnap?: number | null;
+  accuracy?: number;
+  createdate?: string;
+  tpltriptrackid?: number;
+  rowstamp?: string;
 }
 
 export interface UserConfig {
   employeeId: string;
   apiBaseUrl: string;
   authToken: string;
-  wonum?: string;
+  interval?: string;
+  tripId?: string;
+  orgid?: string;
 }

@@ -1,7 +1,7 @@
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import { LocationPayload } from '../types/location';
-import { queueLocation, syncQueue } from './locationQueueService';
+import { queueLocation, syncQueue, clearQueue } from './locationQueueService';
 import { postLocation } from '../api/locationApi';
 import { getDeviceId } from './deviceService';
 import { getUserConfig, getTrackingStartTime, setTrackingStartTime, clearTrackingStartTime } from '../storage/storage';
@@ -20,7 +20,7 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
   if (data) {
     const startTime = await getTrackingStartTime();
     const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
-    
+
     // Auto-stop tracking if 24 hours have elapsed since it started
     if (startTime && (Date.now() - startTime) > TWENTY_FOUR_HOURS) {
       _onLog && _onLog(`[Location] 24-hour limit reached. Auto-stopping tracking.`);
@@ -41,30 +41,33 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
           }
 
           const deviceId = await getDeviceId();
+          
+          if (!config.tripId) {
+            _onLog && _onLog('[Location] WARNING: config.tripId is empty or undefined!');
+          }
+
           const payload: LocationPayload = {
-            'spi:refobject': 'LABOR',
-            'spi:key1': 'TQCERT',
-            'spi:key2': config.employeeId,
-            'spi:latitude': location.coords.latitude,
-            'spi:longitude': location.coords.longitude,
-            'spi:altitude': location.coords.altitude || null,
-            'spi:locationaccuracy': location.coords.accuracy || 0,
-            'spi:lastupdate': new Date(location.timestamp).toISOString(),
-            'spi:speed': location.coords.speed || null,
-            'spi:heading': location.coords.heading || null,
+            tripnum: config.tripId,
+            deviceid: deviceId,
+            personid: config.employeeId,
+            latitudey: location.coords.latitude,
+            longitudex: location.coords.longitude,
+            accuracy: location.coords.accuracy || 0,
+            createdate: new Date(location.timestamp).toISOString(),
           };
-
-          // Removed wonum/key3 as per user request to only send location
-
+           console.log(`[LocationService] Prepared payload: ${JSON.stringify(payload)}`);
           // Try sending immediately
           try {
             await postLocation(payload);
+            console.log('[Location] Successfully uploaded to API');
             _onLog && _onLog('[Location] Successfully uploaded to API');
           } catch (err: any) {
+            console.error(`[Location] Upload failed, adding to queue. Error: ${err.message}`);
             _onLog && _onLog(`[Location] Upload failed, adding to queue. Error: ${err.message}`);
             await queueLocation(payload);
           }
         } catch (e: any) {
+          console.error(`[Location] Processing error: ${e.message}`);
           _onLog && _onLog(`[Location] Processing error: ${e.message}`);
         }
       }
@@ -88,17 +91,25 @@ export const initializeBackgroundGeolocation = async (
     heartbeatInterval = setInterval(async () => {
       onLog(`[Heartbeat] Syncing pending locations...`);
       await syncQueue(onLog);
-    }, 5 * 60 * 1000); // 5 minutes
+    }, 10000); // 10 seconds
   }
 };
 
 export const startTracking = async (): Promise<void> => {
+  const config = await getUserConfig();
+  // Assume interval is passed in seconds, default to 5 seconds
+  const intervalSeconds = config?.interval ? parseInt(config.interval, 10) : 5;
+  const intervalMs = (isNaN(intervalSeconds) || intervalSeconds < 1 ? 5 : intervalSeconds) * 1000;
+
+  console.log(`[LocationService] Extracted raw interval from config: ${config?.interval}`);
+  console.log(`[LocationService] Calculated intervalMs: ${intervalMs} (Seconds: ${intervalMs / 1000})`);
+
   // Always call startLocationUpdatesAsync to ensure the Foreground Service is forcefully restarted
   // even if the task was left registered in the database from an incomplete exit.
   await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
     accuracy: Location.Accuracy.High,
-    timeInterval: 300000, // 5 minutes (Android only)
-    deferredUpdatesInterval: 300000, // Process updates every 5 minutes (iOS)
+    timeInterval: intervalMs, // Configurable interval
+    deferredUpdatesInterval: intervalMs, // Configurable interval
     showsBackgroundLocationIndicator: true,
     foregroundService: {
       notificationTitle: "Location tracking active",
@@ -107,9 +118,9 @@ export const startTracking = async (): Promise<void> => {
     },
     pausesUpdatesAutomatically: false
   });
-  
+
   await setTrackingStartTime(Date.now());
-  
+
   if (_onStateChange) _onStateChange({ enabled: true });
 };
 
@@ -119,7 +130,8 @@ export const stopTracking = async (): Promise<void> => {
     await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
   }
   await clearTrackingStartTime();
-  
+  await clearQueue(); // Clear offline queue on stop
+
   if (_onStateChange) _onStateChange({ enabled: false });
 };
 
