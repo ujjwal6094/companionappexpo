@@ -5,10 +5,11 @@
     "version": "1.0.0",
     "scheme": "maximocompanion",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/icon-resized.jpg",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.maximo.companionappexpo",
       "infoPlist": {
         "UIBackgroundModes": [
           "location",
@@ -21,10 +22,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/icon-resized.jpg"
       },
       "package": "com.maximo.companionappexpo",
       "permissions": [
@@ -46,6 +45,15 @@
           "locationAlwaysAndWhenInUsePermission": "Companion App requires access to your location to track you in the background for Maximo.",
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#1a73e8",
+          "androidMode": "default",
+          "androidCollapsedTitle": "Maximo Companion"
         }
       ]
     ]

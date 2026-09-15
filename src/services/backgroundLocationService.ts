@@ -9,7 +9,7 @@ import { getUserConfig, getTrackingStartTime, setTrackingStartTime, clearTrackin
 const LOCATION_TASK_NAME = 'background-location-task';
 let _onStateChange: ((state: { enabled: boolean }) => void) | null = null;
 let _onLog: ((msg: string) => void) | null = null;
-let heartbeatInterval: NodeJS.Timeout | null = null;
+let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 
 // Define the background task
 TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
@@ -41,7 +41,7 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
           }
 
           const deviceId = await getDeviceId();
-          
+
           if (!config.tripId) {
             _onLog && _onLog('[Location] WARNING: config.tripId is empty or undefined!');
           }
@@ -55,8 +55,9 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
             accuracy: location.coords.accuracy || 0,
             createdate: new Date(location.timestamp).toISOString(),
           };
-           console.log(`[LocationService] Prepared payload: ${JSON.stringify(payload)}`);
-          // Try sending immediately
+          console.log(`[LocationService] Prepared payload: ${JSON.stringify(payload)}`);
+
+          // Try sending immediately, fall back to queue on failure
           try {
             await postLocation(payload);
             console.log('[Location] Successfully uploaded to API');
@@ -86,13 +87,17 @@ export const initializeBackgroundGeolocation = async (
   onStateChange({ enabled: isTracking });
   onLog(`[BackgroundGeolocation] initialized. Currently tracking: ${isTracking}`);
 
-  // Setup Heartbeat to sync offline queue every 5 minutes while the app is alive
-  if (!heartbeatInterval) {
-    heartbeatInterval = setInterval(async () => {
-      onLog(`[Heartbeat] Syncing pending locations...`);
-      await syncQueue(onLog);
-    }, 10000); // 10 seconds
+  // Clear any existing interval before starting a new one (prevents leaks on re-init / HMR)
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+    heartbeatInterval = null;
   }
+
+  // Heartbeat: sync offline queue every 10 seconds while the app is alive (foreground)
+  heartbeatInterval = setInterval(async () => {
+    onLog(`[Heartbeat] Syncing pending locations...`);
+    await syncQueue(onLog);
+  }, 10000);
 };
 
 export const startTracking = async (): Promise<void> => {
@@ -108,15 +113,15 @@ export const startTracking = async (): Promise<void> => {
   // even if the task was left registered in the database from an incomplete exit.
   await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
     accuracy: Location.Accuracy.High,
-    timeInterval: intervalMs, // Configurable interval
-    deferredUpdatesInterval: intervalMs, // Configurable interval
-    showsBackgroundLocationIndicator: true,
+    timeInterval: intervalMs,
+    deferredUpdatesInterval: intervalMs,
+    showsBackgroundLocationIndicator: true, // iOS: shows blue bar
     foregroundService: {
-      notificationTitle: "Location tracking active",
-      notificationBody: "Your location is being shared with Maximo",
-      notificationColor: "#fff",
+      notificationTitle: 'Location tracking active',
+      notificationBody: 'Your location is being shared with Maximo',
+      notificationColor: '#1a73e8',
     },
-    pausesUpdatesAutomatically: false
+    pausesUpdatesAutomatically: false, // iOS: prevent OS pausing updates
   });
 
   await setTrackingStartTime(Date.now());
@@ -130,7 +135,15 @@ export const stopTracking = async (): Promise<void> => {
     await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
   }
   await clearTrackingStartTime();
-  await clearQueue(); // Clear offline queue on stop
+
+  // Sync any remaining offline locations BEFORE clearing the queue
+  // so we don't lose data that was queued but not yet sent.
+  try {
+    await syncQueue(_onLog ?? console.log);
+  } catch (e) {
+    console.warn('[stopTracking] Final sync failed, clearing queue anyway:', e);
+  }
+  await clearQueue();
 
   if (_onStateChange) _onStateChange({ enabled: false });
 };

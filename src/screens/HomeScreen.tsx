@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Button, StyleSheet, Alert, ScrollView } from 'react-native';
+import { View, Text, Button, StyleSheet, ScrollView } from 'react-native';
 import { clearUserConfig } from '../storage/storage';
-import { requestLocationPermissions } from '../services/permissionService';
+import { requestLocationPermissions, checkLocationServicesEnabled } from '../services/permissionService';
 import { 
   initializeBackgroundGeolocation, 
   startTracking, 
@@ -28,9 +28,16 @@ export const HomeScreen = ({ navigation }: any) => {
 
   useEffect(() => {
     const init = async () => {
+      // Check location services are enabled (every mount, not just first time)
+      const servicesOn = await checkLocationServicesEnabled();
+      if (!servicesOn) {
+        // Alert is shown by checkLocationServicesEnabled itself
+        return;
+      }
+
       const hasPermission = await requestLocationPermissions();
       if (!hasPermission) {
-        Alert.alert('Permission Denied', 'Location permission is required.');
+        // Alerts are shown by requestLocationPermissions itself
       }
 
       await initializeBackgroundGeolocation(
@@ -48,12 +55,13 @@ export const HomeScreen = ({ navigation }: any) => {
   }, []);
 
   const handleStartTracking = async () => {
+    // Re-check location services and permissions before starting
+    const servicesOn = await checkLocationServicesEnabled();
+    if (!servicesOn) return;
+
     const hasPermission = await requestLocationPermissions();
-    if (!hasPermission) {
-      Alert.alert('Permission Denied', 'Location permission is required.');
-      return;
-    }
-    
+    if (!hasPermission) return;
+
     await startTracking();
     setIsTracking(true);
     addLog('Tracking manually started');

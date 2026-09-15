@@ -31,10 +31,10 @@ export const LogsScreen = () => {
 
   const renderItem = ({ item }: { item: LocationPayload }) => (
     <View style={styles.card}>
-      <Text style={styles.time}>{new Date(item.timestamp).toLocaleString()}</Text>
-      <Text>Lat: {item.latitude}</Text>
-      <Text>Lng: {item.longitude}</Text>
-      <Text>Acc: {item.accuracy}m</Text>
+      <Text style={styles.time}>{item.createdate ? new Date(item.createdate).toLocaleString() : 'Unknown time'}</Text>
+      <Text>Lat: {item.latitudey?.toFixed(6) ?? 'N/A'}</Text>
+      <Text>Lng: {item.longitudex?.toFixed(6) ?? 'N/A'}</Text>
+      <Text>Acc: {item.accuracy != null ? `${item.accuracy}m` : 'N/A'}</Text>
     </View>
   );
 
@@ -53,7 +53,7 @@ export const LogsScreen = () => {
 
       <FlatList
         data={queue}
-        keyExtractor={(item) => item.timestamp}
+        keyExtractor={(item, index) => item.createdate ?? index.toString()}
         renderItem={renderItem}
         contentContainerStyle={styles.list}
         ListEmptyComponent={<Text style={styles.empty}>Queue is empty</Text>}

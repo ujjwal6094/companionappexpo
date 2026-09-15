@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BackHandler, Alert } from 'react-native';
+import { BackHandler, Platform } from 'react-native';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as Linking from 'expo-linking';
@@ -8,10 +8,31 @@ import { HomeScreen } from '../screens/HomeScreen';
 import { LogsScreen } from '../screens/LogsScreen';
 import { saveUserConfig } from '../storage/storage';
 import { startTracking, stopTracking } from '../services/backgroundLocationService';
-import { requestLocationPermissions } from '../services/permissionService';
+import { requestLocationPermissions, checkLocationServicesEnabled } from '../services/permissionService';
 
 const Stack = createNativeStackNavigator();
 export const navigationRef = createNavigationContainerRef();
+
+/**
+ * Minimizes the app after starting tracking.
+ * - Android: BackHandler.exitApp() moves the app to background.
+ * - iOS: BackHandler is not available, so we navigate to Home screen.
+ *   The user will need to manually background the app on iOS.
+ */
+const minimizeOrNavigateHome = () => {
+  if (Platform.OS === 'android') {
+    setTimeout(() => {
+      BackHandler.exitApp();
+    }, 500);
+  } else {
+    // iOS: navigate to Home so user can see tracking is active, then background manually
+    setTimeout(() => {
+      if (navigationRef.isReady()) {
+        navigationRef.navigate('Home' as never);
+      }
+    }, 300);
+  }
+};
 
 export const AppNavigator = () => {
   useEffect(() => {
@@ -22,18 +43,20 @@ export const AppNavigator = () => {
       // Stop tracking and exit app
       if (parsed.path === 'stop' || url.includes('://stop')) {
         await stopTracking();
-        setTimeout(() => {
-          BackHandler.exitApp();
-        }, 500);
+        if (Platform.OS === 'android') {
+          setTimeout(() => BackHandler.exitApp(), 500);
+        }
         return;
       }
 
-      // Start tracking automatically
+      // Start tracking automatically via deep link
       if (parsed.path === 'start' || url.includes('://start')) {
         if (parsed.queryParams) {
           const { employeeId, apiUrl, token, interval, tripId, orgid } = parsed.queryParams;
-          console.log(`[AppNavigator] Received start intent with params: employeeId=${employeeId}, interval=${interval}, tripId=${tripId}, orgid=${orgid}`);
-          // Even if token is empty, we must try to process it, or alert
+          console.log(
+            `[AppNavigator] Received start intent with params: employeeId=${employeeId}, interval=${interval}, tripId=${tripId}, orgid=${orgid}`
+          );
+
           if (employeeId && apiUrl) {
             await saveUserConfig({
               employeeId: String(employeeId),
@@ -41,18 +64,27 @@ export const AppNavigator = () => {
               authToken: String(token || ''),
               interval: interval ? String(interval) : '5',
               tripId: tripId ? String(tripId) : undefined,
-              orgid: orgid ? String(orgid) : undefined
+              orgid: orgid ? String(orgid) : undefined,
             });
-            console.log(`[AppNavigator] Saved config with interval: ${interval ? String(interval) : '5'} and tripId: ${tripId || 'none'}`);
+            console.log(
+              `[AppNavigator] Saved config with interval: ${interval ? String(interval) : '5'} and tripId: ${tripId || 'none'}`
+            );
 
-            await requestLocationPermissions();
+            // Always check that location services are enabled (every deep link open, not just first time)
+            const hasPermission = await requestLocationPermissions();
+            if (!hasPermission) {
+              console.warn('[AppNavigator] Permission denied — tracking not started.');
+              // Navigate to Home so user sees the issue instead of blank screen
+              if (navigationRef.isReady()) {
+                navigationRef.navigate('Home' as never);
+              }
+              return;
+            }
+
             await startTracking();
 
-            // We are headless now! Minimize the app instantly so the user doesn't see it.
-
-            setTimeout(() => {
-              BackHandler.exitApp();
-            }, 500);
+            // Go headless: minimize on Android, navigate to Home on iOS
+            minimizeOrNavigateHome();
           }
         }
       }

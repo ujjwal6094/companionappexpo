@@ -27,7 +27,7 @@ export const syncQueue = async (
     } catch (e: any) {
       failCount++;
       remainingQueue.push(loc);
-      onLog(`Failed to upload location at ${loc.timestamp}: ${e.message}`);
+      onLog(`Failed to upload location at ${loc.createdate}: ${e.message}`);
     }
   }
 
