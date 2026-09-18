@@ -1,4 +1,4 @@
-package com.maximo.companionappexpo
+package com.maximo.companionapptest
 
 import android.app.Application
 import android.content.res.Configuration

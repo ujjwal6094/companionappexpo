@@ -25,14 +25,19 @@
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/icon-resized.jpg"
       },
-      "package": "com.maximo.companionappexpo",
+      "package": "com.maximo.companionapptest",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION",
         "FOREGROUND_SERVICE",
         "FOREGROUND_SERVICE_LOCATION",
-        "POST_NOTIFICATIONS"
+        "POST_NOTIFICATIONS",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION"
       ]
     },
     "web": {
@@ -56,6 +61,11 @@
           "androidCollapsedTitle": "Maximo Companion"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "79d0d50e-5190-4b65-afc2-01c27000df9c"
+      }
+    }
   }
 }

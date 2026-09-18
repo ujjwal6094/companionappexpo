@@ -24,13 +24,11 @@ const minimizeOrNavigateHome = () => {
     setTimeout(() => {
       BackHandler.exitApp();
     }, 500);
-  } else {
-    // iOS: navigate to Home so user can see tracking is active, then background manually
+  } else if (Platform.OS === 'ios') {
     setTimeout(() => {
-      if (navigationRef.isReady()) {
-        navigationRef.navigate('Home' as never);
-      }
-    }, 300);
+      Linking.openURL('maximomobile://')
+        .catch(err => console.log("Failed to return to Maximo Mobile:", err));
+    }, 500);
   }
 };
 
@@ -45,6 +43,11 @@ export const AppNavigator = () => {
         await stopTracking();
         if (Platform.OS === 'android') {
           setTimeout(() => BackHandler.exitApp(), 500);
+        } else if (Platform.OS === 'ios') {
+          setTimeout(() => {
+            Linking.openURL('maximomobile://')
+              .catch(err => console.log("Failed to return to Maximo Mobile:", err));
+          }, 500);
         }
         return;
       }
