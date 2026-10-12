@@ -52,43 +52,57 @@ export const AppNavigator = () => {
         return;
       }
 
-      // Start tracking automatically via deep link
-      if (parsed.path === 'start' || url.includes('://start')) {
-        if (parsed.queryParams) {
-          const { employeeId, apiUrl, token, interval, tripId, orgid } = parsed.queryParams;
+      // Start tracking automatically via deep link (supports start, setup, track)
+      const path = (parsed.path || '').toLowerCase();
+      const isStartAction =
+        path === 'start' ||
+        path === 'setup' ||
+        path === 'track' ||
+        url.includes('://start') ||
+        url.includes('://setup') ||
+        url.includes('://track');
+
+      if (isStartAction && parsed.queryParams) {
+        const q = parsed.queryParams;
+        const employeeId = q.employeeId || q.personid || q.personId || q.userId || q.userid;
+        const apiUrl = q.apiUrl || q.apiurl || q.url;
+        const token = q.token || q.apikey || q.authToken || '';
+        const interval = q.interval || '5';
+        const tripId = q.tripId || q.tripid || q.tripnum || q.tripNum;
+        const orgid = q.orgid || q.orgId;
+
+        console.log(
+          `[AppNavigator] Received start/setup intent with params: employeeId=${employeeId}, interval=${interval}, tripId=${tripId}, orgid=${orgid}`
+        );
+
+        if (employeeId && apiUrl) {
+          await saveUserConfig({
+            employeeId: String(employeeId),
+            apiBaseUrl: String(apiUrl),
+            authToken: String(token || ''),
+            interval: interval ? String(interval) : '5',
+            tripId: tripId ? String(tripId) : undefined,
+            orgid: orgid ? String(orgid) : undefined,
+          });
           console.log(
-            `[AppNavigator] Received start intent with params: employeeId=${employeeId}, interval=${interval}, tripId=${tripId}, orgid=${orgid}`
+            `[AppNavigator] Saved config with interval: ${interval ? String(interval) : '5'} and tripId: ${tripId || 'none'}`
           );
 
-          if (employeeId && apiUrl) {
-            await saveUserConfig({
-              employeeId: String(employeeId),
-              apiBaseUrl: String(apiUrl),
-              authToken: String(token || ''),
-              interval: interval ? String(interval) : '5',
-              tripId: tripId ? String(tripId) : undefined,
-              orgid: orgid ? String(orgid) : undefined,
-            });
-            console.log(
-              `[AppNavigator] Saved config with interval: ${interval ? String(interval) : '5'} and tripId: ${tripId || 'none'}`
-            );
-
-            // Always check that location services are enabled (every deep link open, not just first time)
-            const hasPermission = await requestLocationPermissions();
-            if (!hasPermission) {
-              console.warn('[AppNavigator] Permission denied — tracking not started.');
-              // Navigate to Home so user sees the issue instead of blank screen
-              if (navigationRef.isReady()) {
-                navigationRef.navigate('Home' as never);
-              }
-              return;
+          // Always check that location services are enabled (every deep link open, not just first time)
+          const hasPermission = await requestLocationPermissions();
+          if (!hasPermission) {
+            console.warn('[AppNavigator] Permission denied — tracking not started.');
+            // Navigate to Home so user sees the issue instead of blank screen
+            if (navigationRef.isReady()) {
+              navigationRef.navigate('Home' as never);
             }
-
-            await startTracking();
-
-            // Go headless: minimize on Android, navigate to Home on iOS
-            minimizeOrNavigateHome();
+            return;
           }
+
+          await startTracking();
+
+          // Go headless: minimize on Android, navigate to Home on iOS
+          minimizeOrNavigateHome();
         }
       }
     };
@@ -112,7 +126,7 @@ export const AppNavigator = () => {
         <Stack.Screen
           name="Home"
           component={HomeScreen}
-          options={{ title: 'Maximo Companion' }}
+          options={{ headerShown: false }}
         />
         <Stack.Screen
           name="Logs"

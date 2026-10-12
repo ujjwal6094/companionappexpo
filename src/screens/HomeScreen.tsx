@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Platform, Alert, AppState } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import { clearUserConfig } from '../storage/storage';
+import { clearUserConfig, getUserConfig } from '../storage/storage';
 import { requestLocationPermissions, checkLocationServicesEnabled } from '../services/permissionService';
 import { 
   initializeBackgroundGeolocation, 
+  startTracking,
   stopTracking, 
   getCurrentTrackingState 
 } from '../services/backgroundLocationService';
@@ -47,10 +48,7 @@ export const HomeScreen = ({ navigation }: any) => {
         return;
       }
 
-      const hasPermission = await requestLocationPermissions();
-      if (!hasPermission) {
-        addLog('Error: Location Permissions denied');
-      }
+      await requestLocationPermissions();
 
       await initializeBackgroundGeolocation(
         (state) => {
@@ -65,7 +63,41 @@ export const HomeScreen = ({ navigation }: any) => {
     };
 
     init();
+
+    // Auto-refresh tracking state when app returns to foreground (e.g. after granting permissions)
+    const subscription = AppState.addEventListener('change', async (nextState) => {
+      if (nextState === 'active') {
+        const state = await getCurrentTrackingState();
+        setIsTracking(state.enabled);
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, []);
+
+  const handleToggleTracking = async () => {
+    if (isTracking) {
+      await stopTracking();
+      setIsTracking(false);
+      addLog('Tracking stopped manually.');
+    } else {
+      const config = await getUserConfig();
+      if (!config) {
+        Alert.alert('No Session Config', 'Please launch or start a trip from Maximo first.');
+        return;
+      }
+      const hasPermission = await requestLocationPermissions();
+      if (!hasPermission) {
+        Alert.alert('Permission Denied', 'Location permissions are required to track.');
+        return;
+      }
+      await startTracking();
+      setIsTracking(true);
+      addLog('Tracking started manually.');
+    }
+  };
 
   const handleExportLogs = async () => {
     try {
@@ -95,9 +127,23 @@ export const HomeScreen = ({ navigation }: any) => {
   };
 
   const handleLogout = async () => {
-    await stopTracking();
-    await clearUserConfig();
-    navigation.replace('Login');
+    Alert.alert(
+      'Reset / Stop Tracking',
+      'Are you sure you want to stop tracking and clear active session?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            await stopTracking();
+            await clearUserConfig();
+            setIsTracking(false);
+            addLog('Tracking stopped and session reset.');
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -111,11 +157,14 @@ export const HomeScreen = ({ navigation }: any) => {
           <Text style={styles.subtitle}>Maximo Companion Engine</Text>
         </View>
         <View style={styles.headerButtons}>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('Logs')}>
+            <Text style={styles.iconText}>Queue</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.iconBtn} onPress={handleExportLogs}>
             <Text style={styles.iconText}>↓ Export</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.iconBtn} onPress={handleLogout}>
-            <Text style={styles.iconText}>Logout</Text>
+            <Text style={styles.iconText}>Reset</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -124,10 +173,14 @@ export const HomeScreen = ({ navigation }: any) => {
       <View style={styles.statusPanel}>
         <View style={styles.statusRow}>
           <Text style={styles.statusLabel}>Tracking Status</Text>
-          <View style={[styles.statusBadge, { backgroundColor: isTracking ? '#059669' : '#DC2626' }]}>
+          <TouchableOpacity 
+            style={[styles.statusBadge, { backgroundColor: isTracking ? '#059669' : '#DC2626' }]}
+            onPress={handleToggleTracking}
+            activeOpacity={0.7}
+          >
             <View style={[styles.pulse, { backgroundColor: isTracking ? '#34D399' : '#F87171' }]} />
-            <Text style={styles.statusBadgeText}>{isTracking ? 'ACTIVE' : 'OFFLINE'}</Text>
-          </View>
+            <Text style={styles.statusBadgeText}>{isTracking ? 'ACTIVE (TAP TO STOP)' : 'OFFLINE (TAP TO START)'}</Text>
+          </TouchableOpacity>
         </View>
         <View style={styles.statusRow}>
           <Text style={styles.statusLabel}>Last Fix</Text>

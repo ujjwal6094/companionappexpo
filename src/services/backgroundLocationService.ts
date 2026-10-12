@@ -4,7 +4,7 @@ import { LocationPayload } from '../types/location';
 import { queueLocation, syncQueue, getPendingLocationsCount } from './locationQueueService';
 import { postLocation } from '../api/locationApi';
 import { getDeviceId } from './deviceService';
-import { getUserConfig, getTrackingStartTime, setTrackingStartTime, clearTrackingStartTime } from '../storage/storage';
+import { getUserConfig, getTrackingStartTime, setTrackingStartTime, clearTrackingStartTime, clearUserConfig } from '../storage/storage';
 
 const LOCATION_TASK_NAME = 'background-location-task';
 
@@ -130,6 +130,17 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
 
     const { locations } = data as { locations: Location.LocationObject[] };
     if (locations && locations.length > 0) {
+      const config = await getUserConfig();
+      if (!config) {
+        _onLog && _onLog('[Location] Error: User config not found');
+        return;
+      }
+      const deviceId = await getDeviceId();
+
+      if (!config.tripId) {
+        _onLog && _onLog('[Location] WARNING: config.tripId is empty or undefined!');
+      }
+
       for (const location of locations) {
         const lat = location.coords.latitude;
         const lng = location.coords.longitude;
@@ -157,18 +168,6 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
         );
 
         try {
-          const config = await getUserConfig();
-          if (!config) {
-            _onLog && _onLog('[Location] Error: User config not found');
-            continue;
-          }
-
-          const deviceId = await getDeviceId();
-
-          if (!config.tripId) {
-            _onLog && _onLog('[Location] WARNING: config.tripId is empty or undefined!');
-          }
-
           const payload: LocationPayload = {
             tripnum: config.tripId,
             deviceid: deviceId,
@@ -180,15 +179,22 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
           };
           console.log(`[LocationService] Prepared payload: ${JSON.stringify(payload)}`);
 
-          // Try sending immediately, fall back to queue on failure
-          try {
-            await postLocation(payload);
-            console.log('[Location] Successfully uploaded to API');
-            _onLog && _onLog('[Location] Successfully uploaded to API');
-          } catch (err: any) {
-            console.error(`[Location] Upload failed, adding to queue. Error: ${err.message}`);
-            _onLog && _onLog(`[Location] Upload failed, queued. Error: ${err.message}`);
+          // Ensure strict FIFO queue: if earlier points are pending, queue this point too
+          const pending = await getPendingLocationsCount();
+          if (pending > 0) {
             await queueLocation(payload);
+            await syncQueue(_onLog ?? console.log);
+          } else {
+            // Try sending immediately, fall back to queue on failure
+            try {
+              await postLocation(payload);
+              console.log('[Location] Successfully uploaded to API');
+              _onLog && _onLog('[Location] Successfully uploaded to API');
+            } catch (err: any) {
+              console.error(`[Location] Upload failed, adding to queue. Error: ${err.message}`);
+              _onLog && _onLog(`[Location] Upload failed, queued. Error: ${err.message}`);
+              await queueLocation(payload);
+            }
           }
         } catch (e: any) {
           console.error(`[Location] Processing error: ${e.message}`);
@@ -218,10 +224,13 @@ export const initializeBackgroundGeolocation = async (
     heartbeatInterval = null;
   }
 
-  // Heartbeat: sync offline queue every 10 seconds while the app is alive (foreground)
+  // Heartbeat: sync offline queue periodically only when pending locations exist
   heartbeatInterval = setInterval(async () => {
-    onLog(`[Heartbeat] Syncing pending locations...`);
-    await syncQueue(onLog);
+    const pending = await getPendingLocationsCount();
+    if (pending > 0) {
+      onLog(`[Heartbeat] Syncing ${pending} pending locations...`);
+      await syncQueue(onLog);
+    }
   }, 10000);
 };
 
@@ -294,10 +303,11 @@ export const stopTracking = async (): Promise<void> => {
 
   const remaining = await getPendingLocationsCount();
   if (remaining > 0) {
-    const msg = `[stopTracking] ${remaining} location(s) still pending in offline queue. They will sync automatically when the app is next opened with connectivity.`;
+    const msg = `[stopTracking] ${remaining} location(s) still pending in offline queue. Session preserved to sync once online.`;
     (_onLog ?? console.log)(msg);
   } else {
-    (_onLog ?? console.log)('[stopTracking] All locations synced successfully.');
+    (_onLog ?? console.log)('[stopTracking] All locations synced successfully. Clearing session data.');
+    await clearUserConfig();
   }
 
   if (_onStateChange) _onStateChange({ enabled: false });

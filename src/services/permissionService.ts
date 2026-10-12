@@ -38,42 +38,52 @@ const requestNotificationPermission = async (): Promise<void> => {
   }
 };
 
+let permissionRequestInProgress: Promise<boolean> | null = null;
+
 /**
  * Full permission check that runs on every deep-link open.
+ * Uses mutex caching so concurrent requests (e.g. AppNavigator + HomeScreen) do not collide.
  */
 export const requestLocationPermissions = async (): Promise<boolean> => {
-  try {
-    const servicesEnabled = await checkLocationServicesEnabled();
-    if (!servicesEnabled) {
-      return false;
-    }
-
-    await requestNotificationPermission();
-
-    let fg = await Location.getForegroundPermissionsAsync();
-    if (fg.status !== 'granted') {
-      fg = await Location.requestForegroundPermissionsAsync();
-    }
-    if (fg.status !== 'granted') {
-      console.warn('[Permissions] Foreground location permission denied');
-      return false;
-    }
-
-    try {
-      let bg = await Location.getBackgroundPermissionsAsync();
-      if (bg.status !== 'granted') {
-        bg = await Location.requestBackgroundPermissionsAsync();
-      }
-      if (bg.status !== 'granted') {
-        console.warn('[Permissions] Background location permission denied, falling back to foreground (blue bar)');
-      }
-    } catch (bgError) {
-      console.warn('[Permissions] Could not request background permissions (common on iOS first launch). Using foreground only.');
-    }
-
-    return true;
-  } catch (error) {
-    console.error('[Permissions] Error requesting location permissions:', error);
-    return false;
+  if (permissionRequestInProgress) {
+    return permissionRequestInProgress;
   }
+
+  permissionRequestInProgress = (async () => {
+    try {
+      const servicesEnabled = await checkLocationServicesEnabled();
+      if (!servicesEnabled) {
+        return false;
+      }
+
+      await requestNotificationPermission();
+
+      let fg = await Location.getForegroundPermissionsAsync();
+      if (fg.status !== 'granted') {
+        fg = await Location.requestForegroundPermissionsAsync();
+      }
+      if (fg.status !== 'granted') {
+        console.warn('[Permissions] Foreground location permission denied');
+        return false;
+      }
+
+      try {
+        let bg = await Location.getBackgroundPermissionsAsync();
+        if (bg.status !== 'granted') {
+          bg = await Location.requestBackgroundPermissionsAsync();
+        }
+      } catch (bgError) {
+        console.warn('[Permissions] Background permission request skipped/failed. Foreground service active.');
+      }
+
+      return true;
+    } catch (error) {
+      console.error('[Permissions] Error requesting location permissions:', error);
+      return false;
+    } finally {
+      permissionRequestInProgress = null;
+    }
+  })();
+
+  return permissionRequestInProgress;
 };

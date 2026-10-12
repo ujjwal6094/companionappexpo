@@ -24,24 +24,25 @@ export const postLocation = async (payload: LocationPayload): Promise<void> => {
   console.log(`[LocationApi] Using API Key (length ${authToken.length}): ${authToken.substring(0, 5)}...`);
 
   let fetchUrl = endpoint;
-  const hasQuery = endpoint.includes('?');
 
-  if (authToken.length < 40 && !authToken.includes('-') && /^[A-Za-z0-9+/=]+$/.test(authToken)) {
-    headers['maxauth'] = authToken;
-    console.log(`[LocationApi] Using maxauth header`);
-  } else {
-    // Append the API key directly in the URL query string like the original working code
-    fetchUrl = `${endpoint}${hasQuery ? '&' : '?'}apikey=${encodeURIComponent(authToken)}`;
-    console.log(`[LocationApi] Using apikey in URL query string`);
+  // Set apikey header
+  headers['apikey'] = authToken;
+
+  // Also include apikey in URL query string (ensures backwards compatibility with existing working behavior)
+  if (!fetchUrl.includes('apikey=')) {
+    const hasQuery = fetchUrl.includes('?');
+    fetchUrl = `${fetchUrl}${hasQuery ? '&' : '?'}apikey=${encodeURIComponent(authToken)}`;
   }
 
-  // Ensure lean=1 is added for the Maximo REST API JSON format
-  fetchUrl = `${fetchUrl}${fetchUrl.includes('?') ? '&' : '?'}lean=1`;
+  // Ensure lean=1 is added for Maximo JSON format without duplicating
+  if (!fetchUrl.includes('lean=1')) {
+    fetchUrl = `${fetchUrl}${fetchUrl.includes('?') ? '&' : '?'}lean=1`;
+  }
 
   console.log(`[LocationApi] Final POST URL: ${fetchUrl}`);
   console.log(`[LocationApi] Final Payload:`, JSON.stringify(payload));
-  console.log(`[LocationApi] Headers being sent:`, JSON.stringify(headers));
 
+  try {
     const res = await axios.post(fetchUrl, payload, {
       headers,
       timeout: 10000,
@@ -51,4 +52,9 @@ export const postLocation = async (payload: LocationPayload): Promise<void> => {
     if (res.data) {
       console.log(`[LocationApi] Maximo Response Data: ${JSON.stringify(res.data)}`);
     }
+  } catch (err: any) {
+    const errData = err.response?.data ? JSON.stringify(err.response.data) : '';
+    console.error(`[LocationApi] Request failed (${err.response?.status || 'No status'}): ${err.message} ${errData}`);
+    throw err;
+  }
 };
