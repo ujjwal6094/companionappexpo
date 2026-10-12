@@ -61,7 +61,8 @@
           "androidMode": "default",
           "androidCollapsedTitle": "Maximo Companion"
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "extra": {
       "eas": {

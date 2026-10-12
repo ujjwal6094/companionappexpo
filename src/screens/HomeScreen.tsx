@@ -1,48 +1,61 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Button, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Platform, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { clearUserConfig } from '../storage/storage';
 import { requestLocationPermissions, checkLocationServicesEnabled } from '../services/permissionService';
 import { 
   initializeBackgroundGeolocation, 
-  startTracking, 
   stopTracking, 
   getCurrentTrackingState 
 } from '../services/backgroundLocationService';
-import { syncQueue } from '../services/locationQueueService';
 
 export const HomeScreen = ({ navigation }: any) => {
   const [isTracking, setIsTracking] = useState(false);
-  const [logs, setLogs] = useState<string[]>([]);
-  const [lastLocation, setLastLocation] = useState<string>('Unknown');
+  const [logs, setLogs] = useState<{time: string, msg: string, type: 'info' | 'error' | 'success'}[]>([]);
+  const [lastLocation, setLastLocation] = useState<string>('Waiting for GPS...');
 
   const addLog = (msg: string) => {
     const time = new Date().toLocaleTimeString();
-    setLogs((prev) => [`[${time}] ${msg}`, ...prev].slice(0, 50)); // Keep last 50 logs
+    let type: 'info' | 'error' | 'success' = 'info';
     
-    // Simple parsing for last location display
-    if (msg.includes('[Location] received:')) {
-      const coords = msg.split('[Location] received:')[1].trim();
+    if (msg.toLowerCase().includes('error') || msg.toLowerCase().includes('failed') || msg.toLowerCase().includes('denied') || msg.toLowerCase().includes('filtered')) {
+      type = 'error';
+    } else if (msg.toLowerCase().includes('success') || msg.toLowerCase().includes('accepted') || msg.toLowerCase().includes('uploaded')) {
+      type = 'success';
+    }
+
+    setLogs((prev) => [{ time, msg, type }, ...prev].slice(0, 100));
+    
+    if (msg.includes('Accepted:')) {
+      const coords = msg.split('Accepted:')[1].trim();
       setLastLocation(coords);
     }
   };
 
   useEffect(() => {
     const init = async () => {
-      // Check location services are enabled (every mount, not just first time)
       const servicesOn = await checkLocationServicesEnabled();
       if (!servicesOn) {
-        // Alert is shown by checkLocationServicesEnabled itself
+        addLog('Error: Location Services are disabled');
+        Alert.alert(
+          'GPS is Off',
+          'Please enable your GPS location services to use tracking features.',
+          [{ text: 'OK' }]
+        );
         return;
       }
 
       const hasPermission = await requestLocationPermissions();
       if (!hasPermission) {
-        // Alerts are shown by requestLocationPermissions itself
+        addLog('Error: Location Permissions denied');
       }
 
       await initializeBackgroundGeolocation(
         (state) => {
           setIsTracking(state.enabled);
+          addLog(state.enabled ? 'GPS Tracking Engine Started' : 'GPS Tracking Engine Stopped');
         },
         addLog
       );
@@ -54,28 +67,31 @@ export const HomeScreen = ({ navigation }: any) => {
     init();
   }, []);
 
-  const handleStartTracking = async () => {
-    // Re-check location services and permissions before starting
-    const servicesOn = await checkLocationServicesEnabled();
-    if (!servicesOn) return;
-
-    const hasPermission = await requestLocationPermissions();
-    if (!hasPermission) return;
-
-    await startTracking();
-    setIsTracking(true);
-    addLog('Tracking manually started');
-  };
-
-  const handleStopTracking = async () => {
-    await stopTracking();
-    setIsTracking(false);
-    addLog('Tracking manually stopped');
-  };
-
-  const handleSync = async () => {
-    addLog('Manual sync initiated...');
-    await syncQueue(addLog);
+  const handleExportLogs = async () => {
+    try {
+      if (logs.length === 0) {
+        addLog('Error: No logs to export');
+        return;
+      }
+      const logText = logs.map(l => `[${l.time}] ${l.type.toUpperCase()}: ${l.msg}`).join('\n');
+      const fileUri = `${FileSystem.documentDirectory}companion_logs_${new Date().getTime()}.txt`;
+      await FileSystem.writeAsStringAsync(fileUri, logText, { encoding: FileSystem.EncodingType.UTF8 });
+      
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(fileUri, {
+          mimeType: 'text/plain',
+          dialogTitle: 'Export Companion Logs',
+          UTI: 'public.plain-text'
+        });
+        addLog('Success: Logs exported');
+      } else {
+        addLog('Error: Sharing not available on this device');
+      }
+    } catch (e: any) {
+      console.error(e);
+      addLog(`Error exporting logs: ${e.message || e}`);
+    }
   };
 
   const handleLogout = async () => {
@@ -85,88 +101,215 @@ export const HomeScreen = ({ navigation }: any) => {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" />
+      
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Companion Tracker</Text>
-        <Text style={styles.status}>Status: {isTracking ? '🟢 ON' : '🔴 OFF'}</Text>
-        <Text style={styles.location}>Last Location: {lastLocation}</Text>
+        <View>
+          <Text style={styles.title}>System Logs</Text>
+          <Text style={styles.subtitle}>Maximo Companion Engine</Text>
+        </View>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity style={styles.iconBtn} onPress={handleExportLogs}>
+            <Text style={styles.iconText}>↓ Export</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.iconBtn} onPress={handleLogout}>
+            <Text style={styles.iconText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      <View style={styles.buttons}>
-        <Button 
-          title="Start Tracking" 
-          onPress={handleStartTracking} 
-          disabled={isTracking} 
-        />
-        <View style={styles.spacer} />
-        <Button 
-          title="Stop Tracking" 
-          onPress={handleStopTracking} 
-          disabled={!isTracking} 
-          color="red"
-        />
-        <View style={styles.spacer} />
-        <Button title="Sync Pending Locations" onPress={handleSync} />
-        <View style={styles.spacer} />
-        <Button title="View Logs & Queue" onPress={() => navigation.navigate('Logs')} color="purple" />
-        <View style={styles.spacer} />
-        <Button title="Logout" onPress={handleLogout} color="gray" />
+      {/* Status Panel */}
+      <View style={styles.statusPanel}>
+        <View style={styles.statusRow}>
+          <Text style={styles.statusLabel}>Tracking Status</Text>
+          <View style={[styles.statusBadge, { backgroundColor: isTracking ? '#059669' : '#DC2626' }]}>
+            <View style={[styles.pulse, { backgroundColor: isTracking ? '#34D399' : '#F87171' }]} />
+            <Text style={styles.statusBadgeText}>{isTracking ? 'ACTIVE' : 'OFFLINE'}</Text>
+          </View>
+        </View>
+        <View style={styles.statusRow}>
+          <Text style={styles.statusLabel}>Last Fix</Text>
+          <Text style={styles.locationText} numberOfLines={1}>{lastLocation}</Text>
+        </View>
       </View>
 
-      <Text style={styles.logTitle}>Recent Activity:</Text>
-      <ScrollView style={styles.logContainer}>
-        {logs.map((log, index) => (
-          <Text key={index} style={styles.logText}>{log}</Text>
-        ))}
-      </ScrollView>
-    </View>
+      {/* Console Area */}
+      <View style={styles.consoleContainer}>
+        <View style={styles.consoleHeader}>
+          <Text style={styles.consoleTitle}>Live Feed</Text>
+        </View>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+          {logs.length === 0 ? (
+            <Text style={styles.emptyText}>System idle. Waiting for events...</Text>
+          ) : (
+            logs.map((log, index) => (
+              <View key={index} style={styles.logEntry}>
+                <Text style={styles.logTime}>[{log.time}]</Text>
+                <Text style={[
+                  styles.logMsg, 
+                  log.type === 'error' && styles.logError,
+                  log.type === 'success' && styles.logSuccess,
+                ]}>
+                  {log.msg}
+                </Text>
+              </View>
+            ))
+          )}
+        </ScrollView>
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 15,
-    backgroundColor: '#fff',
+    backgroundColor: '#0F172A',
   },
   header: {
-    marginBottom: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'android' ? 40 : 20,
+    paddingBottom: 15,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#F8FAFC',
+    letterSpacing: -0.5,
   },
-  status: {
-    fontSize: 18,
-    marginTop: 10,
+  subtitle: {
+    fontSize: 14,
+    color: '#94A3B8',
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  iconBtn: {
+    backgroundColor: '#1E293B',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  iconText: {
+    color: '#CBD5E1',
+    fontSize: 14,
     fontWeight: '600',
   },
-  location: {
-    fontSize: 14,
-    marginTop: 5,
-    color: '#666',
-  },
-  buttons: {
+  statusPanel: {
+    backgroundColor: '#1E293B',
+    marginHorizontal: 20,
+    borderRadius: 16,
+    padding: 20,
     marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
-  spacer: {
-    height: 10,
+  statusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: 6,
   },
-  logTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 5,
+  statusLabel: {
+    color: '#94A3B8',
+    fontSize: 15,
+    fontWeight: '600',
   },
-  logContainer: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-    padding: 10,
-    borderRadius: 8,
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 6,
   },
-  logText: {
+  pulse: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusBadgeText: {
+    color: '#FFFFFF',
     fontSize: 12,
-    color: '#333',
-    marginBottom: 4,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
+  locationText: {
+    color: '#F8FAFC',
+    fontSize: 15,
+    fontWeight: '500',
+    maxWidth: '60%',
+  },
+  consoleContainer: {
+    flex: 1,
+    backgroundColor: '#020617',
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    overflow: 'hidden',
+  },
+  consoleHeader: {
+    backgroundColor: '#0F172A',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E293B',
+  },
+  consoleTitle: {
+    color: '#64748B',
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 16,
+    gap: 8,
+  },
+  logEntry: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  logTime: {
+    color: '#475569',
+    fontSize: 12,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    marginTop: 2,
+  },
+  logMsg: {
+    color: '#94A3B8',
+    fontSize: 13,
+    flex: 1,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    lineHeight: 18,
+  },
+  logError: {
+    color: '#F87171',
+  },
+  logSuccess: {
+    color: '#34D399',
+  },
+  emptyText: {
+    color: '#475569',
+    fontSize: 13,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontStyle: 'italic',
+  }
 });
+

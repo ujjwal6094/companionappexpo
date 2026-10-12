@@ -23,12 +23,12 @@ const minimizeOrNavigateHome = () => {
   if (Platform.OS === 'android') {
     setTimeout(() => {
       BackHandler.exitApp();
-    }, 500);
+    }, 3500);
   } else if (Platform.OS === 'ios') {
     setTimeout(() => {
       Linking.openURL('maximomobile://')
         .catch(err => console.log("Failed to return to Maximo Mobile:", err));
-    }, 500);
+    }, 3500);
   }
 };
 
@@ -42,12 +42,12 @@ export const AppNavigator = () => {
       if (parsed.path === 'stop' || url.includes('://stop')) {
         await stopTracking();
         if (Platform.OS === 'android') {
-          setTimeout(() => BackHandler.exitApp(), 500);
+          setTimeout(() => BackHandler.exitApp(), 3500);
         } else if (Platform.OS === 'ios') {
           setTimeout(() => {
             Linking.openURL('maximomobile://')
               .catch(err => console.log("Failed to return to Maximo Mobile:", err));
-          }, 500);
+          }, 3500);
         }
         return;
       }
@@ -103,7 +103,7 @@ export const AppNavigator = () => {
 
   return (
     <NavigationContainer ref={navigationRef}>
-      <Stack.Navigator initialRouteName="Login">
+      <Stack.Navigator initialRouteName="Home">
         <Stack.Screen
           name="Login"
           component={LoginScreen}
