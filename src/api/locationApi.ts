@@ -25,7 +25,7 @@ export const postLocation = async (payload: LocationPayload): Promise<void> => {
 
   let fetchUrl = endpoint;
   const hasQuery = endpoint.includes('?');
-  
+
   if (authToken.length < 40 && !authToken.includes('-') && /^[A-Za-z0-9+/=]+$/.test(authToken)) {
     headers['maxauth'] = authToken;
     console.log(`[LocationApi] Using maxauth header`);
@@ -42,13 +42,13 @@ export const postLocation = async (payload: LocationPayload): Promise<void> => {
   console.log(`[LocationApi] Final Payload:`, JSON.stringify(payload));
   console.log(`[LocationApi] Headers being sent:`, JSON.stringify(headers));
 
-  const res = await axios.post(fetchUrl, payload, {
-    headers,
-    timeout: 10000,
-  });
-  
-  console.log(`[LocationApi] Maximo Response Status: ${res.status}`);
-  if (res.data) {
-    console.log(`[LocationApi] Maximo Response Data: ${JSON.stringify(res.data)}`);
-  }
+    const res = await axios.post(fetchUrl, payload, {
+      headers,
+      timeout: 10000,
+    });
+
+    console.log(`[LocationApi] Maximo Response Status: ${res.status}`);
+    if (res.data) {
+      console.log(`[LocationApi] Maximo Response Data: ${JSON.stringify(res.data)}`);
+    }
 };

@@ -59,13 +59,16 @@ export const requestLocationPermissions = async (): Promise<boolean> => {
       return false;
     }
 
-    let bg = await Location.getBackgroundPermissionsAsync();
-    if (bg.status !== 'granted') {
-      bg = await Location.requestBackgroundPermissionsAsync();
-    }
-    if (bg.status !== 'granted') {
-      console.warn('[Permissions] Background location permission denied');
-      return false;
+    try {
+      let bg = await Location.getBackgroundPermissionsAsync();
+      if (bg.status !== 'granted') {
+        bg = await Location.requestBackgroundPermissionsAsync();
+      }
+      if (bg.status !== 'granted') {
+        console.warn('[Permissions] Background location permission denied, falling back to foreground (blue bar)');
+      }
+    } catch (bgError) {
+      console.warn('[Permissions] Could not request background permissions (common on iOS first launch). Using foreground only.');
     }
 
     return true;
