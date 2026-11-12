@@ -4,14 +4,21 @@ import { getUserConfig } from '../storage/storage';
 
 export const postLocation = async (payload: LocationPayload): Promise<void> => {
   const config = await getUserConfig();
-  if (!config) {
-    throw new Error('User config not found');
-  }
 
-  const { apiBaseUrl, authToken } = config;
+  const apiBaseUrl = payload.apiUrl || config?.apiBaseUrl;
+  const authToken = payload.authToken || config?.authToken;
 
   if (!apiBaseUrl || !authToken) {
     throw new Error('API Base URL or Auth Token missing');
+  }
+
+  // Strip non-Maximo metadata fields before posting and prune any null/undefined fields
+  const { apiUrl: _url, authToken: _token, ...rawPayload } = payload;
+  const maximoPayload: Record<string, any> = {};
+  for (const [key, val] of Object.entries(rawPayload)) {
+    if (val !== undefined && val !== null && val !== 'null' && val !== 'undefined') {
+      maximoPayload[key] = val;
+    }
   }
 
   // Use the API URL exactly as provided, removing any trailing slash
@@ -40,10 +47,10 @@ export const postLocation = async (payload: LocationPayload): Promise<void> => {
   }
 
   console.log(`[LocationApi] Final POST URL: ${fetchUrl}`);
-  console.log(`[LocationApi] Final Payload:`, JSON.stringify(payload));
+  console.log(`[LocationApi] Final Payload:`, JSON.stringify(maximoPayload));
 
   try {
-    const res = await axios.post(fetchUrl, payload, {
+    const res = await axios.post(fetchUrl, maximoPayload, {
       headers,
       timeout: 10000,
     });

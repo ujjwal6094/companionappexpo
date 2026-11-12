@@ -10,6 +10,8 @@ export interface LocationPayload {
   createdate?: string;
   tpltriptrackid?: number;
   rowstamp?: string;
+  apiUrl?: string;
+  authToken?: string;
 }
 
 export interface UserConfig {

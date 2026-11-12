@@ -8,6 +8,7 @@ import { HomeScreen } from '../screens/HomeScreen';
 import { LogsScreen } from '../screens/LogsScreen';
 import { saveUserConfig } from '../storage/storage';
 import { startTracking, stopTracking } from '../services/backgroundLocationService';
+import { syncQueue, getPendingLocationsCount } from '../services/locationQueueService';
 import { requestLocationPermissions, checkLocationServicesEnabled } from '../services/permissionService';
 
 const Stack = createNativeStackNavigator();
@@ -76,16 +77,31 @@ export const AppNavigator = () => {
         );
 
         if (employeeId && apiUrl) {
+          // 1. If previous pending locations exist from prior offline trips, flush them first
+          try {
+            const pending = await getPendingLocationsCount();
+            if (pending > 0) {
+              console.log(`[AppNavigator] Flushing ${pending} previous pending offline locations before starting new trip...`);
+              await Promise.race([
+                syncQueue(msg => console.log(`[PreSync] ${msg}`)),
+                new Promise(resolve => setTimeout(resolve, 5000)) // 5s timeout guard so we don't block if still offline
+              ]);
+            }
+          } catch (syncErr) {
+            console.warn('[AppNavigator] Pre-sync finished with note:', syncErr);
+          }
+
+          const cleanTripId = tripId && tripId !== 'null' && tripId !== 'undefined' ? String(tripId) : undefined;
           await saveUserConfig({
             employeeId: String(employeeId),
             apiBaseUrl: String(apiUrl),
             authToken: String(token || ''),
             interval: interval ? String(interval) : '5',
-            tripId: tripId ? String(tripId) : undefined,
+            tripId: cleanTripId,
             orgid: orgid ? String(orgid) : undefined,
           });
           console.log(
-            `[AppNavigator] Saved config with interval: ${interval ? String(interval) : '5'} and tripId: ${tripId || 'none'}`
+            `[AppNavigator] Saved config with interval: ${interval ? String(interval) : '5'} and tripId: ${cleanTripId || 'none'}`
           );
 
           // Always check that location services are enabled (every deep link open, not just first time)

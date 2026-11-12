@@ -168,14 +168,20 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
         );
 
         try {
+          const cleanTripId =
+            config.tripId && config.tripId !== 'null' && config.tripId !== 'undefined'
+              ? config.tripId
+              : undefined;
           const payload: LocationPayload = {
-            tripnum: config.tripId,
+            tripnum: cleanTripId,
             deviceid: deviceId,
             personid: config.employeeId,
             latitudey: lat,
             longitudex: lng,
             accuracy: accuracy || 0,
             createdate: new Date(timestamp).toISOString(),
+            apiUrl: config.apiBaseUrl,
+            authToken: config.authToken,
           };
           console.log(`[LocationService] Prepared payload: ${JSON.stringify(payload)}`);
 

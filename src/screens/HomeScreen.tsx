@@ -11,6 +11,7 @@ import {
   stopTracking, 
   getCurrentTrackingState 
 } from '../services/backgroundLocationService';
+import { syncQueue, getPendingLocationsCount } from '../services/locationQueueService';
 
 export const HomeScreen = ({ navigation }: any) => {
   const [isTracking, setIsTracking] = useState(false);
@@ -60,15 +61,27 @@ export const HomeScreen = ({ navigation }: any) => {
 
       const currentState = await getCurrentTrackingState();
       setIsTracking(currentState.enabled);
+
+      // Flush offline queue on initial launch if pending locations exist
+      const pending = await getPendingLocationsCount();
+      if (pending > 0) {
+        addLog(`[Init] Flushing ${pending} pending offline locations...`);
+        await syncQueue(addLog);
+      }
     };
 
     init();
 
-    // Auto-refresh tracking state when app returns to foreground (e.g. after granting permissions)
+    // Auto-refresh tracking state and flush offline queue when app returns to foreground
     const subscription = AppState.addEventListener('change', async (nextState) => {
       if (nextState === 'active') {
         const state = await getCurrentTrackingState();
         setIsTracking(state.enabled);
+        const pending = await getPendingLocationsCount();
+        if (pending > 0) {
+          addLog(`[Resume] Flushing ${pending} pending offline locations...`);
+          await syncQueue(addLog);
+        }
       }
     });
 
