@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Linking,
+  Platform,
 } from 'react-native';
 
 interface LocationDisclosureModalProps {
@@ -20,7 +21,7 @@ export const LocationDisclosureModal: React.FC<LocationDisclosureModalProps> = (
   visible,
   onAccept,
   onDeny,
-  privacyPolicyUrl = 'https://www.mctit.com/privacy-policy',
+  privacyPolicyUrl = 'https://mctindia.co.in/mobileapps-privacy',
 }) => {
   const handleOpenPrivacy = () => {
     if (privacyPolicyUrl) {
@@ -40,14 +41,30 @@ export const LocationDisclosureModal: React.FC<LocationDisclosureModalProps> = (
     >
       <View style={styles.overlay}>
         <View style={styles.dialog}>
-          {/* Header Icon & Title */}
-          <View style={styles.iconContainer}>
-            <Text style={styles.iconText}>📍</Text>
+          {/* Top Header with Icon and Close Button */}
+          <View style={styles.topBar}>
+            <View style={{ width: 32 }} />
+            <View style={styles.iconContainer}>
+              <Text style={styles.iconText}>📍</Text>
+            </View>
+            <TouchableOpacity 
+              onPress={onDeny} 
+              style={styles.closeBtn} 
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Text style={styles.closeBtnText}>✕</Text>
+            </TouchableOpacity>
           </View>
+
           <Text style={styles.title}>Location Permission Notice</Text>
           <Text style={styles.subtitle}>Prominent Disclosure & User Consent</Text>
 
-          <ScrollView style={styles.scrollArea} contentContainerStyle={styles.scrollContent}>
+          {/* Full-view scrollable body */}
+          <ScrollView 
+            style={styles.scrollArea} 
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={true}
+          >
             {/* Required Google Play Background Location Prominent Disclosure Statement */}
             <View style={styles.highlightBox}>
               <Text style={styles.highlightText}>
@@ -112,44 +129,67 @@ export const LocationDisclosureModal: React.FC<LocationDisclosureModalProps> = (
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    paddingHorizontal: 16,
+    paddingVertical: Platform.OS === 'android' ? 24 : 44,
   },
   dialog: {
     backgroundColor: '#0F172A',
-    borderRadius: 20,
+    borderRadius: 24,
     width: '100%',
-    maxWidth: 420,
-    maxHeight: '85%',
-    padding: 24,
+    maxWidth: 480,
+    flex: 1,
+    maxHeight: '94%',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 20,
     borderWidth: 1,
     borderColor: '#334155',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.6,
+    shadowRadius: 24,
     elevation: 24,
   },
-  iconContainer: {
-    alignSelf: 'center',
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: '#1E293B',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  closeBtnText: {
+    color: '#94A3B8',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  iconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#1E293B',
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#38BDF8',
   },
   iconText: {
-    fontSize: 28,
+    fontSize: 26,
   },
   title: {
     color: '#F8FAFC',
-    fontSize: 20,
+    fontSize: 21,
     fontWeight: '800',
     textAlign: 'center',
     letterSpacing: -0.5,
@@ -162,31 +202,31 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginTop: 4,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   scrollArea: {
-    maxHeight: 280,
-    marginBottom: 20,
+    flex: 1,
+    marginBottom: 14,
   },
   scrollContent: {
     paddingBottom: 8,
   },
   highlightBox: {
     backgroundColor: '#1E293B',
-    borderRadius: 12,
-    padding: 14,
+    borderRadius: 14,
+    padding: 16,
     borderLeftWidth: 4,
     borderLeftColor: '#38BDF8',
     marginBottom: 14,
   },
   highlightText: {
-    color: '#E2E8F0',
-    fontSize: 14,
-    lineHeight: 20,
+    color: '#F1F5F9',
+    fontSize: 15,
+    lineHeight: 22,
   },
   boldText: {
     fontWeight: '700',
-    color: '#F8FAFC',
+    color: '#FFFFFF',
   },
   accentText: {
     color: '#38BDF8',
@@ -196,24 +236,24 @@ const styles = StyleSheet.create({
     color: '#CBD5E1',
     fontSize: 13,
     fontWeight: '700',
-    marginTop: 8,
-    marginBottom: 4,
+    marginTop: 10,
+    marginBottom: 6,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   bodyText: {
     color: '#94A3B8',
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 13.5,
+    lineHeight: 20,
     marginBottom: 10,
   },
   privacyLinkContainer: {
-    marginTop: 6,
+    marginTop: 8,
     alignSelf: 'flex-start',
   },
   privacyLinkText: {
     color: '#38BDF8',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     textDecorationLine: 'underline',
   },

@@ -6,6 +6,7 @@ import * as Linking from 'expo-linking';
 import { LoginScreen } from '../screens/LoginScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { LogsScreen } from '../screens/LogsScreen';
+import { LocationInfoScreen } from '../screens/LocationInfoScreen';
 import { saveUserConfig } from '../storage/storage';
 import { startTracking, stopTracking } from '../services/backgroundLocationService';
 import { syncQueue, getPendingLocationsCount } from '../services/locationQueueService';
@@ -146,7 +147,20 @@ export const AppNavigator = () => {
         <Stack.Screen
           name="Logs"
           component={LogsScreen}
-          options={{ title: 'Offline Queue & Logs' }}
+          options={{ 
+            title: 'Offline Queue & Logs',
+            headerStyle: { backgroundColor: '#0F172A' },
+            headerTintColor: '#F8FAFC',
+          }}
+        />
+        <Stack.Screen
+          name="LocationInfo"
+          component={LocationInfoScreen}
+          options={{ 
+            title: 'Location & Privacy Notice',
+            headerStyle: { backgroundColor: '#0F172A' },
+            headerTintColor: '#F8FAFC',
+          }}
         />
       </Stack.Navigator>
     </NavigationContainer>

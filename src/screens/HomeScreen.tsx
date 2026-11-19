@@ -283,11 +283,21 @@ export const HomeScreen = ({ navigation }: any) => {
       
       {/* Header */}
       <View style={styles.header}>
-        <View>
+        {/* Line 1: Heading */}
+        <View style={styles.titleContainer}>
           <Text style={styles.title}>System Logs</Text>
           <Text style={styles.subtitle}>T-Matrix Track Engine</Text>
         </View>
-        <View style={styles.headerButtons}>
+
+        {/* Line 2: All Action & Info Buttons on their own separate line */}
+        <View style={styles.buttonRow}>
+          <TouchableOpacity 
+            style={[styles.iconBtn, styles.infoButton]} 
+            onPress={() => navigation.navigate('LocationInfo')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.infoButtonText}>ⓘ Info</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('Logs')}>
             <Text style={styles.iconText}>Queue</Text>
           </TouchableOpacity>
@@ -383,12 +393,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#0F172A',
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'android' ? 40 : 20,
-    paddingBottom: 15,
+    paddingTop: Platform.OS === 'android' ? 36 : 16,
+    paddingBottom: 14,
+    gap: 14,
+  },
+  titleContainer: {
+    // Title & subtitle on their own prominent line
   },
   title: {
     fontSize: 28,
@@ -402,8 +413,9 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginTop: 2,
   },
-  headerButtons: {
+  buttonRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
   iconBtn: {
@@ -416,8 +428,17 @@ const styles = StyleSheet.create({
   },
   iconText: {
     color: '#CBD5E1',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
+  },
+  infoButton: {
+    backgroundColor: '#0F2B48',
+    borderColor: '#0284C7',
+  },
+  infoButtonText: {
+    color: '#38BDF8',
+    fontSize: 13,
+    fontWeight: '700',
   },
   statusPanel: {
     backgroundColor: '#1E293B',
