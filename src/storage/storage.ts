@@ -7,7 +7,17 @@ const LOCATION_QUEUE_KEY = '@app_location_queue';
 const DEVICE_ID_KEY = '@app_device_id';
 const TRACKING_START_KEY = '@app_tracking_start';
 const SECURE_AUTH_TOKEN_KEY = 'secure_maximo_auth_token';
+const LOCATION_DISCLOSURE_KEY = '@app_location_disclosure_accepted';
 const MAX_QUEUE_SIZE = 5000;
+
+export const hasAcceptedLocationDisclosure = async (): Promise<boolean> => {
+  const data = await AsyncStorage.getItem(LOCATION_DISCLOSURE_KEY);
+  return data === 'true';
+};
+
+export const setLocationDisclosureAccepted = async (accepted: boolean = true): Promise<void> => {
+  await AsyncStorage.setItem(LOCATION_DISCLOSURE_KEY, accepted ? 'true' : 'false');
+};
 
 export const saveUserConfig = async (config: UserConfig): Promise<void> => {
   try {

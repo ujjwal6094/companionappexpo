@@ -15,18 +15,19 @@
           "location",
           "fetch"
         ],
-        "NSLocationWhenInUseUsageDescription": "Maximo Companion uses your location during active work trips to accurately record technician route waypoints and trip distances.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Maximo Companion requires continuous location access during active trips to sync route milestones with Maximo even while your phone is locked or in your pocket.",
-        "NSLocationAlwaysUsageDescription": "Maximo Companion requires background location access during active trips to log travel routes without interrupting your work.",
+        "NSLocationWhenInUseUsageDescription": "T-Matrix Track uses your location during active work trips to accurately record technician route waypoints and trip distances.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "T-Matrix Track requires continuous location access during active trips to sync route milestones with your dispatch system even while your phone is locked or in your pocket.",
+        "NSLocationAlwaysUsageDescription": "T-Matrix Track requires background location access during active trips to log travel routes without interrupting your work.",
         "LSApplicationQueriesSchemes": [
           "maximomobile"
         ]
       }
     },
     "android": {
+      "versionCode": 2,
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
-        "foregroundImage": "./assets/icon-resized.jpg"
+        "foregroundImage": "./assets/icon.png"
       },
       "package": "com.tpl.tmatrix.companionapp",
       "permissions": [
@@ -35,12 +36,7 @@
         "ACCESS_BACKGROUND_LOCATION",
         "FOREGROUND_SERVICE",
         "FOREGROUND_SERVICE_LOCATION",
-        "POST_NOTIFICATIONS",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_BACKGROUND_LOCATION",
-        "android.permission.FOREGROUND_SERVICE",
-        "android.permission.FOREGROUND_SERVICE_LOCATION"
+        "POST_NOTIFICATIONS"
       ]
     },
     "web": {
@@ -50,9 +46,9 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Maximo Companion requires continuous location access during active trips to sync route milestones with Maximo even while your phone is locked or in your pocket.",
-          "locationWhenInUsePermission": "Maximo Companion uses your location during active work trips to accurately record technician route waypoints and trip distances.",
-          "locationAlwaysPermission": "Maximo Companion requires background location access during active trips to log travel routes without interrupting your work.",
+          "locationAlwaysAndWhenInUsePermission": "T-Matrix Track requires continuous location access during active trips to sync route milestones with your dispatch system even while your phone is locked or in your pocket.",
+          "locationWhenInUsePermission": "T-Matrix Track uses your location during active work trips to accurately record technician route waypoints and trip distances.",
+          "locationAlwaysPermission": "T-Matrix Track requires background location access during active trips to log travel routes without interrupting your work.",
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true,
           "isIosBackgroundLocationEnabled": true
@@ -61,10 +57,10 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/icon.png",
-          "color": "#1a73e8",
+          "icon": "./assets/android-icon-monochrome.png",
+          "color": "#0284c7",
           "androidMode": "default",
-          "androidCollapsedTitle": "Maximo Companion"
+          "androidCollapsedTitle": "T-Matrix Track"
         }
       ],
       "expo-sharing",

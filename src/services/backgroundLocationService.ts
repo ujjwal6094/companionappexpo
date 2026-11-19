@@ -265,9 +265,9 @@ export const startTracking = async (): Promise<void> => {
     distanceInterval: MIN_DISTANCE_INTERVAL,   // OS-level gate: only fire if moved ≥ N meters
     showsBackgroundLocationIndicator: true,     // iOS: shows blue bar
     foregroundService: {
-      notificationTitle: 'Location tracking active',
-      notificationBody: 'Your location is being shared with Maximo',
-      notificationColor: '#1a73e8',
+      notificationTitle: 'T-Matrix Track Active',
+      notificationBody: 'Recording location for your active trip',
+      notificationColor: '#0284c7',
     },
     pausesUpdatesAutomatically: false, // iOS: prevent OS pausing updates
   });

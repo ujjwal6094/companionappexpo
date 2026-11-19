@@ -16,6 +16,27 @@ export const checkLocationServicesEnabled = async (): Promise<boolean> => {
 };
 
 /**
+ * Checks if location permissions (both foreground and background) have already been granted.
+ * Does NOT prompt the user or show any system dialogs.
+ */
+export const hasLocationPermissionsGranted = async (): Promise<boolean> => {
+  try {
+    const fg = await Location.getForegroundPermissionsAsync();
+    if (fg.status !== 'granted') {
+      return false;
+    }
+    if (Platform.OS === 'android') {
+      const bg = await Location.getBackgroundPermissionsAsync();
+      return bg.status === 'granted';
+    }
+    return true;
+  } catch (error) {
+    console.warn('[Permissions] Error checking permission status:', error);
+    return false;
+  }
+};
+
+/**
  * Requests notification permission.
  */
 const requestNotificationPermission = async (): Promise<void> => {

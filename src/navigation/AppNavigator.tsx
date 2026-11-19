@@ -9,7 +9,7 @@ import { LogsScreen } from '../screens/LogsScreen';
 import { saveUserConfig } from '../storage/storage';
 import { startTracking, stopTracking } from '../services/backgroundLocationService';
 import { syncQueue, getPendingLocationsCount } from '../services/locationQueueService';
-import { requestLocationPermissions, checkLocationServicesEnabled } from '../services/permissionService';
+import { requestLocationPermissions, checkLocationServicesEnabled, hasLocationPermissionsGranted } from '../services/permissionService';
 
 const Stack = createNativeStackNavigator();
 export const navigationRef = createNavigationContainerRef();
@@ -104,11 +104,10 @@ export const AppNavigator = () => {
             `[AppNavigator] Saved config with interval: ${interval ? String(interval) : '5'} and tripId: ${cleanTripId || 'none'}`
           );
 
-          // Always check that location services are enabled (every deep link open, not just first time)
-          const hasPermission = await requestLocationPermissions();
+          // Check if location permissions are already granted (protects against launching background tracking without prominent disclosure)
+          const hasPermission = await hasLocationPermissionsGranted();
           if (!hasPermission) {
-            console.warn('[AppNavigator] Permission denied — tracking not started.');
-            // Navigate to Home so user sees the issue instead of blank screen
+            console.warn('[AppNavigator] Permissions not yet granted — navigating to Home for disclosure & consent.');
             if (navigationRef.isReady()) {
               navigationRef.navigate('Home' as never);
             }

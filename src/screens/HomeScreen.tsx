@@ -3,8 +3,18 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Platfo
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import { clearUserConfig, getUserConfig, saveUserConfig } from '../storage/storage';
-import { requestLocationPermissions, checkLocationServicesEnabled } from '../services/permissionService';
+import { 
+  clearUserConfig, 
+  getUserConfig, 
+  saveUserConfig,
+  hasAcceptedLocationDisclosure,
+  setLocationDisclosureAccepted,
+} from '../storage/storage';
+import { 
+  requestLocationPermissions, 
+  checkLocationServicesEnabled,
+  hasLocationPermissionsGranted,
+} from '../services/permissionService';
 import { 
   initializeBackgroundGeolocation, 
   startTracking,
@@ -12,6 +22,7 @@ import {
   getCurrentTrackingState 
 } from '../services/backgroundLocationService';
 import { syncQueue, getPendingLocationsCount } from '../services/locationQueueService';
+import { LocationDisclosureModal } from '../components/LocationDisclosureModal';
 
 export const HomeScreen = ({ navigation }: any) => {
   const [isTracking, setIsTracking] = useState(false);
@@ -19,6 +30,8 @@ export const HomeScreen = ({ navigation }: any) => {
   const [lastLocation, setLastLocation] = useState<string>('Waiting for GPS...');
   const [hasSession, setHasSession] = useState(false);
   const [sessionTripId, setSessionTripId] = useState<string | null>(null);
+  const [showDisclosure, setShowDisclosure] = useState(false);
+  const [pendingActionAfterDisclosure, setPendingActionAfterDisclosure] = useState<(() => Promise<void>) | null>(null);
 
   const addLog = (msg: string) => {
     const time = new Date().toLocaleTimeString();
@@ -51,7 +64,18 @@ export const HomeScreen = ({ navigation }: any) => {
         return;
       }
 
-      await requestLocationPermissions();
+      // Check if location permissions have already been granted
+      const granted = await hasLocationPermissionsGranted();
+      if (!granted) {
+        // Check if prominent disclosure was already accepted
+        const accepted = await hasAcceptedLocationDisclosure();
+        if (!accepted) {
+          // Show Prominent Disclosure Modal FIRST before any system dialog
+          setShowDisclosure(true);
+        } else {
+          await requestLocationPermissions();
+        }
+      }
 
       const config = await getUserConfig();
       setHasSession(!!config);
@@ -99,28 +123,73 @@ export const HomeScreen = ({ navigation }: any) => {
     };
   }, []);
 
-  const handleStartDemo = async () => {
-    const demoConfig = {
-      employeeId: 'DEMO_TECH_01',
-      apiBaseUrl: 'https://httpbin.org/post',
-      authToken: 'demo_token_12345',
-      interval: '5',
-      tripId: 'DEMO-TRIP-01',
-      orgid: 'DEMO_ORG',
-    };
-    await saveUserConfig(demoConfig);
-    setHasSession(true);
-    setSessionTripId('DEMO-TRIP-01');
-    addLog('Demo session loaded (Demo Mode)');
+  const ensurePermissionsWithDisclosure = async (actionOnGranted?: () => Promise<void>): Promise<boolean> => {
+    const granted = await hasLocationPermissionsGranted();
+    if (granted) {
+      return true;
+    }
 
-    const hasPermission = await requestLocationPermissions();
+    const accepted = await hasAcceptedLocationDisclosure();
+    if (!accepted) {
+      if (actionOnGranted) {
+        setPendingActionAfterDisclosure(() => actionOnGranted);
+      }
+      setShowDisclosure(true);
+      return false;
+    }
+
+    return await requestLocationPermissions();
+  };
+
+  const handleDisclosureAccept = async () => {
+    setShowDisclosure(false);
+    await setLocationDisclosureAccepted(true);
+    addLog('Location disclosure accepted.');
+
+    const granted = await requestLocationPermissions();
+    if (granted) {
+      addLog('Location permissions granted.');
+      if (pendingActionAfterDisclosure) {
+        const action = pendingActionAfterDisclosure;
+        setPendingActionAfterDisclosure(null);
+        await action();
+      }
+    } else {
+      addLog('Location permission partially allowed or denied.');
+      setPendingActionAfterDisclosure(null);
+    }
+  };
+
+  const handleDisclosureDeny = async () => {
+    setShowDisclosure(false);
+    setPendingActionAfterDisclosure(null);
+    addLog('Location disclosure declined. Background tracking remains inactive.');
+  };
+
+  const handleStartDemo = async () => {
+    const runDemo = async () => {
+      const demoConfig = {
+        employeeId: 'DEMO_TECH_01',
+        apiBaseUrl: 'https://httpbin.org/post',
+        authToken: 'demo_token_12345',
+        interval: '5',
+        tripId: 'DEMO-TRIP-01',
+        orgid: 'DEMO_ORG',
+      };
+      await saveUserConfig(demoConfig);
+      setHasSession(true);
+      setSessionTripId('DEMO-TRIP-01');
+      addLog('Demo session loaded (Demo Mode)');
+      await startTracking();
+      setIsTracking(true);
+      addLog('Tracking started in Demo Mode.');
+    };
+
+    const hasPermission = await ensurePermissionsWithDisclosure(runDemo);
     if (!hasPermission) {
-      Alert.alert('Permission Denied', 'Location permissions are required to track.');
       return;
     }
-    await startTracking();
-    setIsTracking(true);
-    addLog('Tracking started in Demo Mode.');
+    await runDemo();
   };
 
   const handleToggleTracking = async () => {
@@ -144,14 +213,18 @@ export const HomeScreen = ({ navigation }: any) => {
         );
         return;
       }
-      const hasPermission = await requestLocationPermissions();
+
+      const startFn = async () => {
+        await startTracking();
+        setIsTracking(true);
+        addLog('Tracking started manually.');
+      };
+
+      const hasPermission = await ensurePermissionsWithDisclosure(startFn);
       if (!hasPermission) {
-        Alert.alert('Permission Denied', 'Location permissions are required to track.');
         return;
       }
-      await startTracking();
-      setIsTracking(true);
-      addLog('Tracking started manually.');
+      await startFn();
     }
   };
 
@@ -212,7 +285,7 @@ export const HomeScreen = ({ navigation }: any) => {
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>System Logs</Text>
-          <Text style={styles.subtitle}>Maximo Companion Engine</Text>
+          <Text style={styles.subtitle}>T-Matrix Track Engine</Text>
         </View>
         <View style={styles.headerButtons}>
           <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('Logs')}>
@@ -287,12 +360,19 @@ export const HomeScreen = ({ navigation }: any) => {
         </ScrollView>
       </View>
 
-      {/* Battery Disclaimer (Required by Apple App Store Guideline 2.5.4) */}
+      {/* Battery Disclaimer (Required by App Store & Play Store Guidelines) */}
       <View style={styles.footer}>
         <Text style={styles.batteryDisclaimer}>
           Continued use of GPS running in the background can decrease battery life.
         </Text>
       </View>
+
+      {/* Prominent Disclosure Modal (Required by Google Play User Data Policy) */}
+      <LocationDisclosureModal
+        visible={showDisclosure}
+        onAccept={handleDisclosureAccept}
+        onDeny={handleDisclosureDeny}
+      />
     </SafeAreaView>
   );
 };

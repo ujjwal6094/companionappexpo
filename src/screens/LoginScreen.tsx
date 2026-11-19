@@ -19,8 +19,8 @@ export const LoginScreen = ({ navigation }: any) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Maximo Companion</Text>
-      <Text style={styles.subtitle}>Awaiting session launch from Maximo Mobile.</Text>
+      <Text style={styles.title}>T-Matrix Track</Text>
+      <Text style={styles.subtitle}>Awaiting session launch from Maximo Mobile / T-Matrix.</Text>
       {navigation?.replace && (
         <View style={styles.buttonGroup}>
           <TouchableOpacity
