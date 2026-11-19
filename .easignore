@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+
+# Android build outputs
+android/.gradle/
+android/.kotlin/
+android/build/
+android/app/build/
+android/app/.cxx/
+android/.cxx/
+android/local.properties
+android/**/build/
+android/**/.cxx/
+android/**/.gradle/
+
+# iOS build outputs
+ios/build/
+ios/Pods/
+ios/*.xcworkspace
+
+# Keystores & credentials
+credentials.json
+credentials/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Env & temp
+.env*.local
+*.tsbuildinfo
+.DS_Store
+

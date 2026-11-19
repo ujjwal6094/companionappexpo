@@ -20,6 +20,23 @@ credentials/
 *.key
 *.mobileprovision
 
+# Android build artifacts
+android/.gradle/
+android/.kotlin/
+android/build/
+android/app/build/
+android/app/.cxx/
+android/.cxx/
+android/local.properties
+android/**/build/
+android/**/.cxx/
+android/**/.gradle/
+
+# iOS build artifacts
+ios/build/
+ios/Pods/
+ios/*.xcworkspace
+
 # Metro
 .metro-health-check*
 

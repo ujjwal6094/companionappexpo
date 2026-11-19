@@ -1,23 +1,26 @@
 {
   "expo": {
-    "name": "CompanionAppExpo",
+    "name": "T-Matrix Track",
     "slug": "CompanionAppExpo",
     "version": "1.0.0",
     "scheme": "maximocompanion",
     "orientation": "portrait",
-    "icon": "./assets/icon-resized.jpg",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.maximo.companionappexpo",
+      "bundleIdentifier": "com.tpl.tmatrix.companionapp",
       "infoPlist": {
         "UIBackgroundModes": [
           "location",
           "fetch"
         ],
-        "NSLocationWhenInUseUsageDescription": "Companion App requires access to your location to track you in the background for Maximo.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Companion App requires access to your location to track you in the background for Maximo.",
-        "NSLocationAlwaysUsageDescription": "Companion App requires access to your location to track you in the background for Maximo."
+        "NSLocationWhenInUseUsageDescription": "Maximo Companion uses your location during active work trips to accurately record technician route waypoints and trip distances.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Maximo Companion requires continuous location access during active trips to sync route milestones with Maximo even while your phone is locked or in your pocket.",
+        "NSLocationAlwaysUsageDescription": "Maximo Companion requires background location access during active trips to log travel routes without interrupting your work.",
+        "LSApplicationQueriesSchemes": [
+          "maximomobile"
+        ]
       }
     },
     "android": {
@@ -25,7 +28,7 @@
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/icon-resized.jpg"
       },
-      "package": "com.maximo.companionapptest",
+      "package": "com.tpl.tmatrix.companionapp",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
@@ -47,7 +50,9 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Companion App requires access to your location to track you in the background for Maximo.",
+          "locationAlwaysAndWhenInUsePermission": "Maximo Companion requires continuous location access during active trips to sync route milestones with Maximo even while your phone is locked or in your pocket.",
+          "locationWhenInUsePermission": "Maximo Companion uses your location during active work trips to accurately record technician route waypoints and trip distances.",
+          "locationAlwaysPermission": "Maximo Companion requires background location access during active trips to log travel routes without interrupting your work.",
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true,
           "isIosBackgroundLocationEnabled": true
@@ -62,11 +67,12 @@
           "androidCollapsedTitle": "Maximo Companion"
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "expo-secure-store"
     ],
     "extra": {
       "eas": {
-        "projectId": "79d0d50e-5190-4b65-afc2-01c27000df9c"
+        "projectId": "96801059-4e6f-4401-86ab-2f6e90272538"
       }
     }
   }

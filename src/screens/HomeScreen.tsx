@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Platfo
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import { clearUserConfig, getUserConfig } from '../storage/storage';
+import { clearUserConfig, getUserConfig, saveUserConfig } from '../storage/storage';
 import { requestLocationPermissions, checkLocationServicesEnabled } from '../services/permissionService';
 import { 
   initializeBackgroundGeolocation, 
@@ -17,6 +17,8 @@ export const HomeScreen = ({ navigation }: any) => {
   const [isTracking, setIsTracking] = useState(false);
   const [logs, setLogs] = useState<{time: string, msg: string, type: 'info' | 'error' | 'success'}[]>([]);
   const [lastLocation, setLastLocation] = useState<string>('Waiting for GPS...');
+  const [hasSession, setHasSession] = useState(false);
+  const [sessionTripId, setSessionTripId] = useState<string | null>(null);
 
   const addLog = (msg: string) => {
     const time = new Date().toLocaleTimeString();
@@ -51,6 +53,10 @@ export const HomeScreen = ({ navigation }: any) => {
 
       await requestLocationPermissions();
 
+      const config = await getUserConfig();
+      setHasSession(!!config);
+      setSessionTripId(config?.tripId || null);
+
       await initializeBackgroundGeolocation(
         (state) => {
           setIsTracking(state.enabled);
@@ -77,6 +83,9 @@ export const HomeScreen = ({ navigation }: any) => {
       if (nextState === 'active') {
         const state = await getCurrentTrackingState();
         setIsTracking(state.enabled);
+        const config = await getUserConfig();
+        setHasSession(!!config);
+        setSessionTripId(config?.tripId || null);
         const pending = await getPendingLocationsCount();
         if (pending > 0) {
           addLog(`[Resume] Flushing ${pending} pending offline locations...`);
@@ -90,6 +99,30 @@ export const HomeScreen = ({ navigation }: any) => {
     };
   }, []);
 
+  const handleStartDemo = async () => {
+    const demoConfig = {
+      employeeId: 'DEMO_TECH_01',
+      apiBaseUrl: 'https://httpbin.org/post',
+      authToken: 'demo_token_12345',
+      interval: '5',
+      tripId: 'DEMO-TRIP-01',
+      orgid: 'DEMO_ORG',
+    };
+    await saveUserConfig(demoConfig);
+    setHasSession(true);
+    setSessionTripId('DEMO-TRIP-01');
+    addLog('Demo session loaded (Demo Mode)');
+
+    const hasPermission = await requestLocationPermissions();
+    if (!hasPermission) {
+      Alert.alert('Permission Denied', 'Location permissions are required to track.');
+      return;
+    }
+    await startTracking();
+    setIsTracking(true);
+    addLog('Tracking started in Demo Mode.');
+  };
+
   const handleToggleTracking = async () => {
     if (isTracking) {
       await stopTracking();
@@ -98,7 +131,17 @@ export const HomeScreen = ({ navigation }: any) => {
     } else {
       const config = await getUserConfig();
       if (!config) {
-        Alert.alert('No Session Config', 'Please launch or start a trip from Maximo first.');
+        Alert.alert(
+          'No Session Active',
+          'A trip has not been initiated from Maximo Mobile. Would you like to start a demo session for review & testing?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Load Demo Mode',
+              onPress: handleStartDemo,
+            },
+          ]
+        );
         return;
       }
       const hasPermission = await requestLocationPermissions();
@@ -152,6 +195,8 @@ export const HomeScreen = ({ navigation }: any) => {
             await stopTracking();
             await clearUserConfig();
             setIsTracking(false);
+            setHasSession(false);
+            setSessionTripId(null);
             addLog('Tracking stopped and session reset.');
           },
         },
@@ -196,10 +241,26 @@ export const HomeScreen = ({ navigation }: any) => {
           </TouchableOpacity>
         </View>
         <View style={styles.statusRow}>
+          <Text style={styles.statusLabel}>Session</Text>
+          <Text style={styles.sessionText} numberOfLines={1}>
+            {hasSession ? (sessionTripId ? `Trip: ${sessionTripId}` : 'Active Session') : 'Awaiting Maximo launch'}
+          </Text>
+        </View>
+        <View style={styles.statusRow}>
           <Text style={styles.statusLabel}>Last Fix</Text>
           <Text style={styles.locationText} numberOfLines={1}>{lastLocation}</Text>
         </View>
       </View>
+
+      {/* Reviewer / Demo Mode Banner */}
+      {!hasSession && !isTracking && (
+        <TouchableOpacity style={styles.demoBanner} onPress={handleStartDemo} activeOpacity={0.8}>
+          <View style={styles.demoBannerBadge}>
+            <Text style={styles.demoBannerBadgeText}>DEMO MODE</Text>
+          </View>
+          <Text style={styles.demoBannerText}>Tap to load demo session & test tracking</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Console Area */}
       <View style={styles.consoleContainer}>
@@ -224,6 +285,13 @@ export const HomeScreen = ({ navigation }: any) => {
             ))
           )}
         </ScrollView>
+      </View>
+
+      {/* Battery Disclaimer (Required by Apple App Store Guideline 2.5.4) */}
+      <View style={styles.footer}>
+        <Text style={styles.batteryDisclaimer}>
+          Continued use of GPS running in the background can decrease battery life.
+        </Text>
       </View>
     </SafeAreaView>
   );
@@ -376,6 +444,53 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     fontStyle: 'italic',
-  }
+  },
+  sessionText: {
+    color: '#38BDF8',
+    fontSize: 14,
+    fontWeight: '600',
+    maxWidth: '60%',
+  },
+  demoBanner: {
+    backgroundColor: '#1E293B',
+    marginHorizontal: 20,
+    marginBottom: 16,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#0284C7',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  demoBannerBadge: {
+    backgroundColor: '#0284C7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  demoBannerBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  demoBannerText: {
+    color: '#E0F2FE',
+    fontSize: 13,
+    fontWeight: '500',
+    flex: 1,
+  },
+  footer: {
+    paddingHorizontal: 20,
+    paddingBottom: Platform.OS === 'ios' ? 4 : 10,
+    alignItems: 'center',
+  },
+  batteryDisclaimer: {
+    color: '#64748B',
+    fontSize: 11,
+    textAlign: 'center',
+    lineHeight: 14,
+  },
 });
 
